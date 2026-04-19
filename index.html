@@ -1,1 +1,828 @@
-inout-valid-check-out
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="theme-color" content="#07070f"/>
+  <title>InOut · Registro de Pulsera</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+    :root{
+      --bg:#07070f;--surf:#0d0d1a;--card:#111120;--border:#1c1c2e;
+      --a1:#c8ff00;--a2:#ff3cac;--a3:#00d4ff;
+      --txt:#e6e6f0;--muted:#60607a;
+      --success:#00e676;--danger:#ff1744;--warn:#ffab00;
+      --r:16px;--r-sm:12px;
+    }
+    html,body{height:100%;font-family:'DM Sans',sans-serif;font-size:16px;color:var(--txt);background:var(--bg);overflow:hidden;touch-action:manipulation;user-select:none;-webkit-font-smoothing:antialiased;}
+
+    .kiosk{display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:600px;margin:0 auto;padding:16px 20px;position:relative;}
+    .kiosk::before{content:'';position:absolute;top:-60px;left:50%;transform:translateX(-50%);width:500px;height:300px;background:radial-gradient(ellipse,rgba(0,212,255,.05) 0%,transparent 70%);pointer-events:none;z-index:0;}
+
+    .k-header{text-align:center;padding:8px 0;flex-shrink:0;position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;}
+    .k-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;letter-spacing:-.5px;flex:1;text-align:center;}
+    .k-logo .hi{color:var(--a1);}
+    .k-logo small{display:block;font-family:'DM Sans',sans-serif;font-weight:400;font-size:10px;color:var(--a3);text-transform:uppercase;letter-spacing:2.5px;margin-top:2px;}
+
+    .k-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow-y:auto;padding:8px 0 60px;position:relative;z-index:1;}
+
+    .k-footer{text-align:center;padding:6px 0;flex-shrink:0;font-size:10px;color:var(--muted);position:relative;z-index:1;}
+
+    /* Steps */
+    .steps-bar{display:flex;gap:6px;margin-bottom:20px;width:100%;max-width:400px;}
+    .step-dot{flex:1;height:4px;border-radius:2px;background:var(--border);transition:background .3s;}
+    .step-dot.done{background:var(--a1);}
+    .step-dot.active{background:var(--a3);animation:pulse-bar 1.5s ease-in-out infinite;}
+    @keyframes pulse-bar{0%,100%{opacity:1;}50%{opacity:.5;}}
+
+    /* QR scanner area */
+    .scan-area{width:240px;height:240px;border-radius:20px;border:2px solid var(--border);position:relative;display:flex;align-items:center;justify-content:center;margin:0 auto;overflow:hidden;}
+    .scan-area.active{border-color:var(--a3);box-shadow:0 0 0 4px rgba(0,212,255,.1);}
+    .scan-area.ok{border-color:var(--a1);box-shadow:0 0 0 4px rgba(200,255,0,.12);}
+    .scan-area.err{border-color:var(--danger);box-shadow:0 0 0 4px rgba(255,23,68,.12);}
+    .scan-corner{position:absolute;width:20px;height:20px;border-color:currentColor;border-style:solid;}
+    .scan-corner.tl{top:8px;left:8px;border-width:3px 0 0 3px;border-radius:4px 0 0 0;}
+    .scan-corner.tr{top:8px;right:8px;border-width:3px 3px 0 0;border-radius:0 4px 0 0;}
+    .scan-corner.bl{bottom:8px;left:8px;border-width:0 0 3px 3px;border-radius:0 0 0 4px;}
+    .scan-corner.br{bottom:8px;right:8px;border-width:0 3px 3px 0;border-radius:0 0 4px 0;}
+    .scan-line{position:absolute;width:80%;height:2px;background:linear-gradient(to right,transparent,var(--a3),transparent);animation:scan 2s ease-in-out infinite;opacity:.8;}
+    @keyframes scan{0%{top:20%;}100%{top:80%;}}
+
+    /* NFC ring */
+    .nfc-ring{width:160px;height:160px;border-radius:50%;border:2.5px solid var(--border);display:flex;align-items:center;justify-content:center;margin:0 auto;position:relative;}
+    .nfc-ring.scanning{border-color:var(--a3);color:var(--a3);animation:ring-pulse 2s ease-in-out infinite;}
+    .nfc-ring.ok{border-color:var(--a1);color:var(--a1);}
+    .nfc-ring.err{border-color:var(--danger);color:var(--danger);}
+    .nfc-ring::before{content:'';position:absolute;width:192px;height:192px;border-radius:50%;border:1.5px solid currentColor;opacity:0;}
+    .nfc-ring.scanning::before{animation:ring-expand 2s ease-in-out infinite;}
+    @keyframes ring-pulse{0%,100%{box-shadow:0 0 0 0 rgba(0,212,255,.25);}50%{box-shadow:0 0 0 16px rgba(0,212,255,0);}}
+    @keyframes ring-expand{0%{opacity:.3;transform:scale(.85);}100%{opacity:0;transform:scale(1.1);}}
+    .nfc-emoji{font-size:54px;line-height:1;display:block;text-align:center;}
+
+    /* Cards */
+    .info-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px;width:100%;margin-bottom:12px;}
+    .info-card.success{border-color:rgba(0,230,118,.3);background:rgba(0,230,118,.05);}
+    .info-card.danger{border-color:rgba(255,23,68,.3);background:rgba(255,23,68,.05);}
+    .info-card.warn{border-color:rgba(255,171,0,.3);background:rgba(255,171,0,.05);}
+
+    .ticket-name{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--a1);margin:4px 0;}
+    .ticket-event{font-size:14px;color:var(--muted);margin-bottom:12px;}
+    .ticket-row{display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05);}
+    .ticket-row:last-child{border-bottom:none;}
+    .ticket-lbl{color:var(--muted);}
+
+    /* Buttons */
+    .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:16px 24px;border-radius:var(--r-sm);border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:600;transition:opacity .12s,transform .1s;width:100%;min-height:52px;}
+    .btn:active{transform:scale(.96);opacity:.8;}
+    .btn:disabled{opacity:.4;pointer-events:none;}
+    .btn-p{background:var(--a1);color:#000;}
+    .btn-g{background:transparent;color:var(--muted);border:1px solid var(--border);}
+    .btn-danger{background:rgba(255,23,68,.1);color:var(--danger);border:1px solid rgba(255,23,68,.2);}
+
+    .k-title{font-family:'Syne',sans-serif;font-weight:700;font-size:22px;text-align:center;margin-top:14px;line-height:1.2;}
+    .k-sub{color:var(--muted);font-size:14px;text-align:center;margin-top:6px;line-height:1.5;max-width:360px;}
+
+    /* Input */
+    .form-input{width:100%;padding:14px 16px;border-radius:var(--r-sm);background:var(--surf);border:2px solid var(--border);color:var(--txt);font-size:18px;font-family:monospace;text-align:center;letter-spacing:2px;outline:none;transition:border-color .15s;-webkit-text-fill-color:var(--txt);}
+    .form-input:focus{border-color:var(--a3);}
+
+    /* Success overlay */
+    .success-overlay{position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;background:rgba(0,40,10,.95);backdrop-filter:blur(6px);animation:fadeIn .25s ease;padding:24px;}
+    .success-box{text-align:center;width:100%;max-width:380px;}
+    @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+
+    /* Status bar */
+    .k-status{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:5px 16px 7px;font-size:10px;color:var(--muted);background:linear-gradient(to top,var(--bg) 60%,transparent);z-index:10;pointer-events:none;}
+    .dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--a3);margin-right:5px;animation:blink 2s ease-in-out infinite;}
+    @keyframes blink{0%,100%{opacity:1;}50%{opacity:.2;}}
+
+    /* Toast */
+    #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border);border-radius:100px;padding:12px 22px;font-size:13px;z-index:1000;transition:transform .3s cubic-bezier(.4,0,.2,1);white-space:nowrap;pointer-events:none;}
+    #toast.show{transform:translateX(-50%) translateY(0);}
+    #toast.err{border-color:rgba(255,23,68,.4);color:var(--danger);}
+    #toast.ok{border-color:rgba(0,230,118,.4);color:var(--success);}
+    #toast.warn{border-color:rgba(255,171,0,.4);color:var(--warn);}
+
+    /* Event selector */
+    .ev-btn{padding:14px 16px;background:var(--card);border:2px solid var(--border);border-radius:var(--r-sm);cursor:pointer;transition:all .15s;width:100%;text-align:left;margin-bottom:8px;}
+    .ev-btn:hover,.ev-btn:active{border-color:var(--a3);background:rgba(0,212,255,.05);}
+    .ev-btn.selected{border-color:var(--a1);background:rgba(200,255,0,.06);}
+    .ev-nombre{font-family:'Syne',sans-serif;font-size:15px;font-weight:600;}
+    .ev-meta{font-size:12px;color:var(--muted);margin-top:3px;}
+
+    @media(max-height:680px){
+      .scan-area{width:180px;height:180px;}
+      .nfc-ring{width:120px;height:120px;}
+      .nfc-emoji{font-size:40px;}
+      .k-title{font-size:18px;}
+    }
+  </style>
+</head>
+<body>
+<div id="toast"></div>
+
+<div class="kiosk">
+  <div class="k-header">
+    <div style="width:40px"></div>
+    <div class="k-logo">in<span class="hi">out</span><small id="logo-sub">Registro · Enlace de pulsera</small></div>
+    <div style="width:40px;display:flex;justify-content:flex-end">
+      <div id="settings-btn" style="cursor:pointer;font-size:18px;color:var(--muted)" onclick="openSettings()" title="Configuración">⚙️</div>
+    </div>
+  </div>
+  <div class="k-body" id="k-body"></div>
+  <div class="k-footer" id="k-footer">InOut Media · Sistema de registro de pulseras</div>
+</div>
+
+<div class="k-status">
+  <span><span class="dot"></span>InOut Register v1.0</span>
+  <span id="k-time">—</span>
+  <span id="k-nfc-status">NFC: —</span>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════
+//  CONFIG
+// ══════════════════════════════════════════════════
+const SB_URL   = 'https://raoxkjnwrccoxjcipfpv.supabase.co';
+const SB_KEY   = 'sb_publishable__-K1pC4bOJHRf8JQ__OOzg_jqLxlGla';
+const _sb      = supabase.createClient(SB_URL, SB_KEY);
+
+// ══════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════
+let activeEvent    = null;   // evento activo seleccionado
+let nfcReader      = null;
+let nfcSupported   = false;
+let currentTicket  = null;   // ticket validado en paso 1
+let idleTimer      = null;
+
+// Persistir evento activo
+const savedEventId = localStorage.getItem('reg_event_id');
+const savedEventName = localStorage.getItem('reg_event_name');
+if(savedEventId) activeEvent = {id: savedEventId, nombre: savedEventName};
+
+// ══════════════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════════════
+let _toastTimer = null;
+function toast(msg, type='', ms=3000){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'show' + (type?' '+type:'');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+function resetIdle(){
+  clearTimeout(idleTimer);
+  const body = document.getElementById('k-body');
+  if(!body || body.dataset.screen === 'idle') return;
+  idleTimer = setTimeout(() => { showIdle(); }, 90_000); // 90s sin actividad
+}
+
+function startClock(){
+  const tick = () => { const el=document.getElementById('k-time'); if(el) el.textContent=new Date().toLocaleTimeString('es-ES'); };
+  tick(); setInterval(tick, 1000);
+}
+
+// ══════════════════════════════════════════════════
+//  NFC INIT
+// ══════════════════════════════════════════════════
+async function initNFC(){
+  const el = document.getElementById('k-nfc-status');
+  // App Android bridge
+  if(window.ANDROID_KIOSK){
+    window.onAndroidNFCScan = (uid) => { if(uid && uid.length >= 4) onNFCScan(uid.toUpperCase()); };
+    nfcSupported = window.ANDROID_NFC === true;
+    if(el){ el.textContent = nfcSupported ? 'NFC: Activo (App)' : 'NFC: App sin NFC'; }
+    return;
+  }
+  if(!('NDEFReader' in window)){
+    if(el) el.textContent = 'NFC: No disponible';
+    return;
+  }
+  nfcSupported = true;
+  if(el){ el.textContent = 'NFC: Activo'; el.style.color = 'var(--a1)'; }
+  try{
+    nfcReader = new NDEFReader();
+    await nfcReader.scan();
+    nfcReader.onreading = ev => onNFCScan(ev.serialNumber.replace(/:/g,'').toUpperCase());
+    nfcReader.onreadingerror = () => toast('Error leyendo NFC','err');
+  }catch(e){
+    nfcSupported = false;
+    if(el) el.textContent = 'NFC: Sin permiso';
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  SELECCIONAR EVENTO ACTIVO
+// ══════════════════════════════════════════════════
+async function openSettings(){
+  const body = document.getElementById('k-body');
+  body.dataset.screen = 'settings';
+  body.innerHTML = `
+    <div style="width:100%;max-width:440px">
+      <div style="font-family:Syne;font-size:20px;font-weight:700;margin-bottom:6px;text-align:center">⚙️ Configuración</div>
+      <div style="font-size:13px;color:var(--muted);text-align:center;margin-bottom:20px">Selecciona el evento activo para este kiosco</div>
+      <div id="ev-list"><div style="text-align:center;color:var(--muted);padding:20px">Cargando eventos…</div></div>
+      <button class="btn btn-g" style="margin-top:12px" onclick="showIdle()">← Volver</button>
+    </div>`;
+  
+  try{
+    const{data:evs} = await _sb.from('events')
+      .select('id,nombre,fecha_inicio,estado')
+      .in('estado',['publicado','confirmado','produccion','borrador'])
+      .order('fecha_inicio',{ascending:false})
+      .limit(20);
+    
+    const list = document.getElementById('ev-list');
+    if(!evs || evs.length === 0){
+      list.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px">No hay eventos disponibles</div>';
+      return;
+    }
+    list.innerHTML = evs.map(ev => {
+      const fecha = (ev.fecha_inicio||'').slice(0,10);
+      const isSelected = activeEvent?.id === ev.id;
+      return `<div class="ev-btn ${isSelected?'selected':''}" onclick="selectEvent('${ev.id}','${ev.nombre.replace(/'/g,'\\'')}')">
+        <div class="ev-nombre">${ev.nombre}</div>
+        <div class="ev-meta">📅 ${fecha} · ${ev.estado}</div>
+      </div>`;
+    }).join('');
+  }catch(e){
+    toast('Error cargando eventos','err');
+  }
+}
+
+function selectEvent(id, nombre){
+  activeEvent = {id, nombre};
+  localStorage.setItem('reg_event_id', id);
+  localStorage.setItem('reg_event_name', nombre);
+  toast(`Evento activo: ${nombre}`, 'ok');
+  showIdle();
+}
+
+// ══════════════════════════════════════════════════
+//  PANTALLA IDLE — PASO 0
+// ══════════════════════════════════════════════════
+function showIdle(){
+  currentTicket = null;
+  clearTimeout(idleTimer);
+  const body = document.getElementById('k-body');
+  body.dataset.screen = 'idle';
+  
+  const eventBanner = activeEvent
+    ? `<div style="background:rgba(200,255,0,.08);border:1px solid rgba(200,255,0,.2);border-radius:10px;padding:10px 16px;margin-bottom:20px;text-align:center">
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Evento activo</div>
+        <div style="font-family:Syne;font-size:15px;font-weight:700;color:var(--a1)">${activeEvent.nombre}</div>
+       </div>`
+    : `<div style="background:rgba(255,23,68,.08);border:1px solid rgba(255,23,68,.2);border-radius:10px;padding:10px 16px;margin-bottom:20px;text-align:center;cursor:pointer" onclick="openSettings()">
+        <div style="font-size:13px;color:var(--danger)">⚠️ Sin evento seleccionado</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Toca aquí para configurar</div>
+       </div>`;
+
+  body.innerHTML = `
+    <div style="width:100%;max-width:400px;text-align:center">
+      ${eventBanner}
+      
+      <!-- Instrucciones visuales -->
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px">
+        <div style="text-align:center;flex:1">
+          <div style="font-size:36px;margin-bottom:4px">🎟️</div>
+          <div style="font-family:Syne;font-weight:700;font-size:13px;color:var(--a3)">PASO 1</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Escanea tu<br>entrada (QR)</div>
+        </div>
+        <div style="color:var(--muted);font-size:22px">→</div>
+        <div style="text-align:center;flex:1">
+          <div style="font-size:36px;margin-bottom:4px">📡</div>
+          <div style="font-family:Syne;font-weight:700;font-size:13px;color:var(--a1)">PASO 2</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Acerca tu<br>pulsera</div>
+        </div>
+        <div style="color:var(--muted);font-size:22px">→</div>
+        <div style="text-align:center;flex:1">
+          <div style="font-size:36px;margin-bottom:4px">✅</div>
+          <div style="font-family:Syne;font-weight:700;font-size:13px;color:var(--success)">LISTO</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Pulsera<br>registrada</div>
+        </div>
+      </div>
+
+      <div class="btn btn-p" style="font-size:18px;padding:18px" onclick="startStep1()">
+        🎟️ Comenzar registro
+      </div>
+      <button class="btn btn-g" style="margin-top:10px;font-size:13px" onclick="skipToWristband()">
+        Solo registrar pulsera (sin QR)
+      </button>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════
+//  PASO 1 — ESCANEAR QR DE ENTRADA
+// ══════════════════════════════════════════════════
+function startStep1(){
+  if(!activeEvent){ toast('Selecciona un evento primero','warn'); openSettings(); return; }
+  
+  const body = document.getElementById('k-body');
+  body.dataset.screen = 'step1';
+  resetIdle();
+  
+  body.innerHTML = `
+    <div style="width:100%;max-width:400px;text-align:center">
+      <div class="steps-bar">
+        <div class="step-dot active"></div>
+        <div class="step-dot"></div>
+        <div class="step-dot"></div>
+      </div>
+      
+      <div style="font-size:13px;color:var(--a3);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">PASO 1 DE 3</div>
+      <div class="k-title">Escanea tu entrada</div>
+      <div class="k-sub">Usa el lector QR o introduce el código de tu entrada</div>
+      
+      <!-- QR scan area visual -->
+      <div class="scan-area active" style="margin:20px auto">
+        <div class="scan-corner tl" style="color:var(--a3)"></div>
+        <div class="scan-corner tr" style="color:var(--a3)"></div>
+        <div class="scan-corner bl" style="color:var(--a3)"></div>
+        <div class="scan-corner br" style="color:var(--a3)"></div>
+        <div class="scan-line"></div>
+        <div style="font-size:11px;color:var(--muted);text-align:center;padding:20px">
+          Apunta la cámara<br>al código QR de tu entrada
+        </div>
+      </div>
+      
+      <!-- Input manual -->
+      <div style="margin-top:16px">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">O introduce el código manualmente:</div>
+        <input id="ticket-code-input" class="form-input" type="text" 
+          placeholder="Código de entrada" autocomplete="off" autocapitalize="off"
+          style="margin-bottom:0"
+          oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9-]/g,'')"
+          onkeydown="if(event.key==='Enter')submitTicketCode()"/>
+        <button class="btn btn-p" style="margin-top:10px" onclick="submitTicketCode()">
+          Validar entrada →
+        </button>
+      </div>
+
+      <button class="btn btn-g" style="margin-top:10px;font-size:13px" onclick="showIdle()">← Cancelar</button>
+    </div>`;
+
+  // Auto-focus para lectores USB de QR (actúan como teclado)
+  setTimeout(() => document.getElementById('ticket-code-input')?.focus(), 100);
+  
+  // Listener para lectura automática de QR USB (barcode/QR scanner → teclado → Enter)
+  document.getElementById('ticket-code-input')?.addEventListener('keydown', e => {
+    if(e.key === 'Enter') submitTicketCode();
+  });
+}
+
+async function submitTicketCode(){
+  const raw = document.getElementById('ticket-code-input')?.value?.trim();
+  if(!raw || raw.length < 4){ toast('Introduce un código válido','warn'); return; }
+  
+  const btn = document.querySelector('#k-body .btn-p');
+  if(btn){ btn.disabled = true; btn.textContent = 'Validando…'; }
+  
+  await validateTicket(raw);
+}
+
+// Permite al bridge Android llamar esto directamente con el QR escaneado
+window.onAndroidQRScan = async (qrData) => {
+  await validateTicket(qrData);
+};
+
+async function validateTicket(code){
+  // Limpiar el código — puede ser una URL con el ticket_id como parámetro
+  // Formatos: 
+  //   - Solo el código: "TK-XXXXX" 
+  //   - URL: "https://inout-check.vercel.app/ticket/TK-XXXXX"
+  //   - URL con param: "https://...?ticket=TK-XXXXX"
+  let ticketCode = code;
+  try{
+    const url = new URL(code);
+    // Intentar extraer de pathname o params
+    const pathParts = url.pathname.split('/');
+    const lastPart = pathParts[pathParts.length - 1];
+    if(lastPart && lastPart.length > 4) ticketCode = lastPart;
+    const param = url.searchParams.get('ticket') || url.searchParams.get('id') || url.searchParams.get('code');
+    if(param) ticketCode = param;
+  }catch(e){ /* no es URL, usar el código directo */ }
+
+  try{
+    // Buscar el ticket en Supabase
+    // Los tickets tienen un campo 'ticket_code' o 'id' o un UUID
+    let {data:ticket, error} = await _sb.from('tickets')
+      .select('*, orders(buyer_name, buyer_email, buyer_phone), ticket_types(nombre, tipo_zona)')
+      .or(`ticket_code.eq.${ticketCode},id.eq.${ticketCode}`)
+      .eq('event_id', activeEvent.id)
+      .maybeSingle();
+
+    if(error) throw error;
+
+    if(!ticket){
+      // Intentar buscar por UUID completo si el código es un UUID
+      const {data:ticket2} = await _sb.from('tickets')
+        .select('*, orders(buyer_name, buyer_email, buyer_phone), ticket_types(nombre, tipo_zona)')
+        .eq('id', ticketCode)
+        .maybeSingle();
+      ticket = ticket2;
+    }
+    
+    if(!ticket){
+      showTicketError(`Entrada no encontrada en ${activeEvent.nombre}`);
+      return;
+    }
+
+    if(ticket.status === 'used' || ticket.validated){
+      // Verificar si ya tiene pulsera asignada
+      const {data:reg} = await _sb.from('event_wristband_registrations')
+        .select('*, rfid_wristbands(uid,holder_name)')
+        .eq('ticket_id', ticket.id)
+        .maybeSingle();
+      
+      if(reg){
+        showTicketAlreadyLinked(ticket, reg);
+        return;
+      }
+    }
+
+    currentTicket = ticket;
+    showTicketValid(ticket);
+
+  }catch(e){
+    console.error(e);
+    toast('Error al validar: '+e.message, 'err');
+    const btn = document.querySelector('#k-body .btn-p');
+    if(btn){ btn.disabled = false; btn.textContent = 'Validar entrada →'; }
+  }
+}
+
+function showTicketError(msg){
+  const body = document.getElementById('k-body');
+  body.innerHTML = `
+    <div style="width:100%;max-width:400px;text-align:center">
+      <div style="font-size:64px;margin-bottom:12px">❌</div>
+      <div style="font-family:Syne;font-size:22px;font-weight:700;color:var(--danger);margin-bottom:8px">Entrada no válida</div>
+      <div style="font-size:14px;color:var(--muted);margin-bottom:24px">${msg}</div>
+      <div class="info-card danger">
+        <div style="font-size:13px;line-height:1.6">Verifica que el código es correcto y que corresponde al evento <strong style="color:var(--txt)">${activeEvent?.nombre}</strong>.</div>
+      </div>
+      <button class="btn btn-p" style="margin-top:16px" onclick="startStep1()">🔄 Intentar de nuevo</button>
+      <button class="btn btn-g" style="margin-top:8px" onclick="showIdle()">← Inicio</button>
+    </div>`;
+  if(navigator.vibrate) navigator.vibrate([100,50,100,50,100]);
+}
+
+function showTicketAlreadyLinked(ticket, reg){
+  const wristband = reg.rfid_wristbands;
+  const body = document.getElementById('k-body');
+  body.innerHTML = `
+    <div style="width:100%;max-width:400px;text-align:center">
+      <div style="font-size:64px;margin-bottom:12px">⚠️</div>
+      <div style="font-family:Syne;font-size:20px;font-weight:700;color:var(--warn);margin-bottom:8px">Entrada ya registrada</div>
+      <div class="info-card warn">
+        <div class="ticket-row"><span class="ticket-lbl">Pulsera</span><span style="font-family:monospace">${wristband?.uid || '—'}</span></div>
+        <div class="ticket-row"><span class="ticket-lbl">Titular</span><span>${wristband?.holder_name || reg.holder_name || '—'}</span></div>
+      </div>
+      <div style="font-size:13px;color:var(--muted);margin:12px 0">Esta entrada ya tiene una pulsera enlazada. ¿Quieres re-enlazarla a una pulsera diferente?</div>
+      <button class="btn btn-p" onclick="currentTicket=ticket_;startStep2()" style="margin-bottom:8px">Sí, re-enlazar pulsera</button>
+      <button class="btn btn-g" onclick="showIdle()">No, cancelar</button>
+    </div>`;
+  // Guardar ticket en closure
+  const ticket_ = ticket;
+  window._relink_ticket = ticket;
+  document.querySelector('[onclick="currentTicket=ticket_;startStep2()"]').onclick = () => { currentTicket = ticket_; startStep2(); };
+}
+
+function showTicketValid(ticket){
+  const buyer = ticket.orders || {};
+  const tipo  = ticket.ticket_types || {};
+  const body  = document.getElementById('k-body');
+  body.dataset.screen = 'ticket-valid';
+  resetIdle();
+  
+  body.innerHTML = `
+    <div style="width:100%;max-width:400px;text-align:center">
+      <div class="steps-bar">
+        <div class="step-dot done"></div>
+        <div class="step-dot active"></div>
+        <div class="step-dot"></div>
+      </div>
+      
+      <div style="font-size:13px;color:var(--a1);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">PASO 2 DE 3 — Entrada válida ✓</div>
+      
+      <div class="info-card success" style="margin-bottom:16px;text-align:left">
+        <div class="ticket-name">${buyer.buyer_name || tipo.nombre || 'Entrada válida'}</div>
+        <div class="ticket-event">${activeEvent?.nombre}</div>
+        <div class="ticket-row"><span class="ticket-lbl">Tipo</span><span>${tipo.nombre || '—'}</span></div>
+        <div class="ticket-row"><span class="ticket-lbl">Zona</span><span>${tipo.tipo_zona || 'General'}</span></div>
+        ${buyer.buyer_email ? `<div class="ticket-row"><span class="ticket-lbl">Email</span><span style="font-size:12px">${buyer.buyer_email}</span></div>` : ''}
+        ${buyer.buyer_phone ? `<div class="ticket-row"><span class="ticket-lbl">Teléfono</span><span>${buyer.buyer_phone}</span></div>` : ''}
+      </div>
+      
+      <div class="k-title" style="font-size:20px">Ahora acerca la pulsera</div>
+      <div class="k-sub" style="margin-bottom:16px">Enlazaremos esta entrada con tu pulsera NFC</div>
+      
+      <button class="btn btn-p" onclick="startStep2()">
+        📡 Continuar con la pulsera →
+      </button>
+      <button class="btn btn-g" style="margin-top:8px;font-size:13px" onclick="startStep1()">← Volver</button>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════
+//  PASO 2 — LEER PULSERA NFC
+// ══════════════════════════════════════════════════
+function startStep2(){
+  const body = document.getElementById('k-body');
+  body.dataset.screen = 'step2';
+  resetIdle();
+  
+  body.innerHTML = `
+    <div style="width:100%;max-width:400px;text-align:center">
+      <div class="steps-bar">
+        <div class="step-dot done"></div>
+        <div class="step-dot done"></div>
+        <div class="step-dot active"></div>
+      </div>
+      
+      <div style="font-size:13px;color:var(--a3);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">PASO 3 DE 3</div>
+      
+      <div class="nfc-ring scanning" id="nfc-ring">
+        <span class="nfc-emoji">📡</span>
+      </div>
+      
+      <div class="k-title">Acerca tu pulsera</div>
+      <div class="k-sub">Pon la pulsera NFC cerca del lector</div>
+      
+      ${!nfcSupported ? `
+        <div style="margin-top:16px">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:8px">NFC no disponible — introduce el UID manualmente:</div>
+          <input id="uid-input" class="form-input" type="text" 
+            placeholder="UID de la pulsera"
+            oninput="this.value=this.value.replace(/[^a-fA-F0-9]/g,'').toUpperCase()"
+            onkeydown="if(event.key==='Enter')submitWristbandUID()"/>
+          <button class="btn btn-p" style="margin-top:10px" onclick="submitWristbandUID()">Registrar</button>
+        </div>
+      ` : ''}
+      
+      <button class="btn btn-g" style="margin-top:14px;font-size:13px" onclick="currentTicket?showTicketValid(currentTicket):startStep1()">← Atrás</button>
+    </div>`;
+  
+  // Si no hay NFC, auto-focus en el input
+  if(!nfcSupported) setTimeout(() => document.getElementById('uid-input')?.focus(), 100);
+}
+
+// Llamada cuando NFC detecta una pulsera (en paso 2)
+async function onNFCScan(uid){
+  const body = document.getElementById('k-body');
+  if(body.dataset.screen !== 'step2') return; // solo en paso 2
+  
+  if(navigator.vibrate) navigator.vibrate(100);
+  
+  const ring = document.getElementById('nfc-ring');
+  if(ring) ring.className = 'nfc-ring ok';
+  
+  await processWristband(uid);
+}
+
+async function submitWristbandUID(){
+  const uid = document.getElementById('uid-input')?.value?.trim().toUpperCase();
+  if(!uid || uid.length < 4){ toast('UID inválido','warn'); return; }
+  await processWristband(uid);
+}
+
+// ══════════════════════════════════════════════════
+//  PROCESAR PULSERA — CORAZÓN DEL SISTEMA
+// ══════════════════════════════════════════════════
+async function processWristband(uid){
+  const body = document.getElementById('k-body');
+  body.innerHTML = `
+    <div style="text-align:center;padding:40px 0">
+      <div style="font-size:48px;margin-bottom:12px">⏳</div>
+      <div style="font-family:Syne;font-size:18px;font-weight:700;margin-bottom:8px">Procesando…</div>
+      <div style="font-size:13px;color:var(--muted)">Registrando pulsera en el evento</div>
+    </div>`;
+
+  try{
+    // 1. Buscar o crear la pulsera en rfid_wristbands
+    let {data:wristband} = await _sb.from('rfid_wristbands')
+      .select('*')
+      .eq('uid', uid)
+      .maybeSingle();
+
+    const buyer = currentTicket?.orders || {};
+    const holderName  = buyer.buyer_name  || wristband?.holder_name  || 'Sin nombre';
+    const holderEmail = buyer.buyer_email || wristband?.holder_email || null;
+    const holderPhone = buyer.buyer_phone || wristband?.holder_phone || null;
+
+    if(!wristband){
+      // Pulsera nueva — crearla
+      const {data:newWb, error:wbErr} = await _sb.from('rfid_wristbands').insert({
+        uid,
+        holder_name:  holderName,
+        holder_email: holderEmail,
+        holder_phone: holderPhone,
+        status:       'active',
+        balance:      0,
+        event_id:     activeEvent.id,
+      }).select().single();
+      if(wbErr) throw wbErr;
+      wristband = newWb;
+    } else {
+      // Pulsera existente — actualizar holder si ahora tenemos datos
+      if(holderName !== 'Sin nombre' && wristband.holder_name !== holderName){
+        await _sb.from('rfid_wristbands').update({
+          holder_name:  holderName,
+          holder_email: holderEmail || wristband.holder_email,
+          holder_phone: holderPhone || wristband.holder_phone,
+        }).eq('id', wristband.id);
+        wristband.holder_name = holderName;
+      }
+    }
+
+    // 2. Registrar en event_wristband_registrations
+    //    Esta tabla permite que una pulsera esté en múltiples eventos
+    const regData = {
+      event_id:     activeEvent.id,
+      wristband_id: wristband.id,
+      wristband_uid:uid,
+      ticket_id:    currentTicket?.id || null,
+      holder_name:  holderName,
+      holder_email: holderEmail,
+      holder_phone: holderPhone,
+      registered_at:new Date().toISOString(),
+      registered_by:'kiosk-register',
+    };
+
+    // Upsert: si ya existe para este evento, actualizar
+    const {error:regErr} = await _sb.from('event_wristband_registrations')
+      .upsert(regData, {onConflict:'event_id,wristband_uid'});
+    
+    if(regErr){
+      // Si la tabla no existe, intentar solo actualizar la pulsera con el event_id
+      console.warn('event_wristband_registrations no disponible, usando event_id en wristband:', regErr);
+      await _sb.from('rfid_wristbands').update({event_id: activeEvent.id}).eq('id', wristband.id);
+    }
+
+    // 3. Marcar el ticket como usado (si existe)
+    if(currentTicket?.id){
+      await _sb.from('tickets').update({status:'used', validated:true, validated_at:new Date().toISOString()}).eq('id', currentTicket.id);
+    }
+
+    // 4. Registrar log
+    await _sb.from('rfid_transactions').insert({
+      wristband_id: wristband.id,
+      event_id:     activeEvent.id,
+      amount:       0,
+      description:  `Registro entrada evento: ${activeEvent.nombre}`,
+      type:         'registration',
+      operator:     'kiosk-register',
+    }).catch(() => {}); // no crítico
+
+    showSuccess(uid, holderName, wristband);
+
+  }catch(e){
+    console.error(e);
+    showRegistrationError(uid, e.message);
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  PANTALLA DE ÉXITO
+// ══════════════════════════════════════════════════
+function showSuccess(uid, holderName, wristband){
+  if(navigator.vibrate) navigator.vibrate([100,60,100]);
+  
+  const overlay = document.createElement('div');
+  overlay.className = 'success-overlay';
+  overlay.innerHTML = `
+    <div class="success-box">
+      <div style="font-size:72px;margin-bottom:12px">✅</div>
+      <div style="font-family:Syne;font-size:26px;font-weight:800;color:var(--success);margin-bottom:6px">¡Registrado!</div>
+      <div style="font-size:16px;color:var(--a1);font-family:Syne;font-weight:700;margin-bottom:16px">${holderName}</div>
+      <div style="background:rgba(255,255,255,.06);border-radius:12px;padding:14px;margin-bottom:16px;text-align:left">
+        <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px"><span style="color:var(--muted)">Pulsera</span><span style="font-family:monospace;font-size:12px">${uid}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px"><span style="color:var(--muted)">Evento</span><span>${activeEvent?.nombre}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px"><span style="color:var(--muted)">Saldo</span><span style="color:var(--a1);font-weight:600">${(wristband.balance||0).toFixed(2)} €</span></div>
+      </div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:16px" id="scd">Volviendo al inicio en 4 seg…</div>
+      <button class="btn btn-p" onclick="this.closest('.success-overlay').remove();showIdle()">
+        Siguiente persona →
+      </button>
+    </div>`;
+  document.body.appendChild(overlay);
+  
+  let secs = 4;
+  const ticker = setInterval(() => {
+    secs--;
+    const el = document.getElementById('scd');
+    if(el) el.textContent = `Volviendo al inicio en ${secs} seg…`;
+    if(secs <= 0){ clearInterval(ticker); overlay.remove(); showIdle(); }
+  }, 1000);
+}
+
+function showRegistrationError(uid, errMsg){
+  const body = document.getElementById('k-body');
+  body.innerHTML = `
+    <div style="width:100%;max-width:400px;text-align:center">
+      <div style="font-size:64px;margin-bottom:12px">❌</div>
+      <div style="font-family:Syne;font-size:20px;font-weight:700;color:var(--danger);margin-bottom:8px">Error al registrar</div>
+      <div class="info-card danger" style="text-align:left">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:4px">UID:</div>
+        <div style="font-family:monospace;font-size:14px;margin-bottom:8px">${uid}</div>
+        <div style="font-size:12px;color:var(--muted)">${errMsg}</div>
+      </div>
+      <button class="btn btn-p" style="margin-top:16px" onclick="startStep2()">🔄 Reintentar</button>
+      <button class="btn btn-g" style="margin-top:8px" onclick="showIdle()">← Inicio</button>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════
+//  MODO DIRECTO — Solo registrar pulsera sin QR
+//  (para discotecas donde no hay ticket previo)
+// ══════════════════════════════════════════════════
+function skipToWristband(){
+  if(!activeEvent){ toast('Selecciona un evento primero','warn'); openSettings(); return; }
+  currentTicket = null;
+  
+  const body = document.getElementById('k-body');
+  body.dataset.screen = 'direct';
+  resetIdle();
+  
+  body.innerHTML = `
+    <div style="width:100%;max-width:400px;text-align:center">
+      <div style="font-size:13px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">REGISTRO DIRECTO</div>
+      
+      <div class="nfc-ring scanning" id="nfc-ring-d">
+        <span class="nfc-emoji">📡</span>
+      </div>
+      
+      <div class="k-title">Acerca tu pulsera</div>
+      <div class="k-sub">La pulsera se enlazará directamente al evento <strong style="color:var(--a1)">${activeEvent.nombre}</strong></div>
+      
+      ${!nfcSupported ? `
+        <div style="margin-top:16px">
+          <input id="uid-direct" class="form-input" type="text" 
+            placeholder="UID de la pulsera"
+            oninput="this.value=this.value.replace(/[^a-fA-F0-9]/g,'').toUpperCase()"
+            onkeydown="if(event.key==='Enter')submitDirectUID()"/>
+          <button class="btn btn-p" style="margin-top:10px" onclick="submitDirectUID()">Registrar</button>
+        </div>
+      ` : ''}
+      
+      <button class="btn btn-g" style="margin-top:14px;font-size:13px" onclick="showIdle()">← Cancelar</button>
+    </div>`;
+  
+  // Cambiar handler NFC a modo directo
+  body.dataset.nfcMode = 'direct';
+  if(!nfcSupported) setTimeout(() => document.getElementById('uid-direct')?.focus(), 100);
+}
+
+// Override onNFCScan para modo directo
+const _originalOnNFCScan = onNFCScan;
+window.onNFCScan = async function(uid){
+  const body = document.getElementById('k-body');
+  if(body.dataset.screen === 'direct' || body.dataset.screen === 'step2'){
+    if(navigator.vibrate) navigator.vibrate(100);
+    const ring = document.getElementById('nfc-ring') || document.getElementById('nfc-ring-d');
+    if(ring) ring.className = 'nfc-ring ok';
+    await processWristband(uid);
+  }
+};
+// Reasignar el handler de NFC reader
+if(nfcReader) nfcReader.onreading = ev => window.onNFCScan(ev.serialNumber.replace(/:/g,'').toUpperCase());
+if(window.ANDROID_KIOSK) window.onAndroidNFCScan = uid => { if(uid && uid.length >= 4) window.onNFCScan(uid.toUpperCase()); };
+
+async function submitDirectUID(){
+  const uid = document.getElementById('uid-direct')?.value?.trim().toUpperCase();
+  if(!uid || uid.length < 4){ toast('UID inválido','warn'); return; }
+  await processWristband(uid);
+}
+
+// ══════════════════════════════════════════════════
+//  SQL MIGRATION HELPER — crea tabla si no existe
+// ══════════════════════════════════════════════════
+async function ensureRegistrationsTable(){
+  // Intentar hacer un select para ver si la tabla existe
+  const {error} = await _sb.from('event_wristband_registrations').select('id').limit(1);
+  if(error && error.code === '42P01'){
+    console.warn('La tabla event_wristband_registrations no existe. Ejecuta el SQL del README.');
+    toast('⚠️ Falta tabla en BD. Ver consola.','warn',6000);
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════
+(async function init(){
+  startClock();
+  await initNFC();
+  await ensureRegistrationsTable();
+  document.addEventListener('touchstart', resetIdle, {passive:true});
+  document.addEventListener('click', resetIdle);
+  showIdle();
+})();
+</script>
+</body>
+</html>
