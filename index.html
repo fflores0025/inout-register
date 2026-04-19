@@ -125,6 +125,35 @@
 <body>
 <div id="toast"></div>
 
+<!-- PIN overlay -->
+<div id="pin-overlay" style="display:none;position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.88);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:24px;">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:28px;width:100%;max-width:320px;text-align:center">
+    <div style="font-family:Syne,sans-serif;font-size:18px;font-weight:700;margin-bottom:6px">Acceso de admin</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:4px">Introduce el PIN para continuar</div>
+    <div style="display:flex;gap:12px;justify-content:center;margin:16px 0" id="pin-dots">
+      <div id="pd0" style="width:14px;height:14px;border-radius:50%;border:2px solid var(--border);transition:all .15s"></div>
+      <div id="pd1" style="width:14px;height:14px;border-radius:50%;border:2px solid var(--border);transition:all .15s"></div>
+      <div id="pd2" style="width:14px;height:14px;border-radius:50%;border:2px solid var(--border);transition:all .15s"></div>
+      <div id="pd3" style="width:14px;height:14px;border-radius:50%;border:2px solid var(--border);transition:all .15s"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px" id="pin-pad">
+      <div onclick="pinKey('1')" style="padding:18px;border-radius:var(--r-sm);background:var(--surf);border:1px solid var(--border);font-family:Syne,sans-serif;font-size:22px;font-weight:700;cursor:pointer;transition:background .1s">1</div>
+      <div onclick="pinKey('2')" style="padding:18px;border-radius:var(--r-sm);background:var(--surf);border:1px solid var(--border);font-family:Syne,sans-serif;font-size:22px;font-weight:700;cursor:pointer;transition:background .1s">2</div>
+      <div onclick="pinKey('3')" style="padding:18px;border-radius:var(--r-sm);background:var(--surf);border:1px solid var(--border);font-family:Syne,sans-serif;font-size:22px;font-weight:700;cursor:pointer;transition:background .1s">3</div>
+      <div onclick="pinKey('4')" style="padding:18px;border-radius:var(--r-sm);background:var(--surf);border:1px solid var(--border);font-family:Syne,sans-serif;font-size:22px;font-weight:700;cursor:pointer;transition:background .1s">4</div>
+      <div onclick="pinKey('5')" style="padding:18px;border-radius:var(--r-sm);background:var(--surf);border:1px solid var(--border);font-family:Syne,sans-serif;font-size:22px;font-weight:700;cursor:pointer;transition:background .1s">5</div>
+      <div onclick="pinKey('6')" style="padding:18px;border-radius:var(--r-sm);background:var(--surf);border:1px solid var(--border);font-family:Syne,sans-serif;font-size:22px;font-weight:700;cursor:pointer;transition:background .1s">6</div>
+      <div onclick="pinKey('7')" style="padding:18px;border-radius:var(--r-sm);background:var(--surf);border:1px solid var(--border);font-family:Syne,sans-serif;font-size:22px;font-weight:700;cursor:pointer;transition:background .1s">7</div>
+      <div onclick="pinKey('8')" style="padding:18px;border-radius:var(--r-sm);background:var(--surf);border:1px solid var(--border);font-family:Syne,sans-serif;font-size:22px;font-weight:700;cursor:pointer;transition:background .1s">8</div>
+      <div onclick="pinKey('9')" style="padding:18px;border-radius:var(--r-sm);background:var(--surf);border:1px solid var(--border);font-family:Syne,sans-serif;font-size:22px;font-weight:700;cursor:pointer;transition:background .1s">9</div>
+      <div style="padding:18px;opacity:.2">　</div>
+      <div onclick="pinKey('0')" style="padding:18px;border-radius:var(--r-sm);background:var(--surf);border:1px solid var(--border);font-family:Syne,sans-serif;font-size:22px;font-weight:700;cursor:pointer;transition:background .1s">0</div>
+      <div onclick="pinKey('⌫')" style="padding:18px;border-radius:var(--r-sm);background:var(--surf);border:1px solid var(--border);font-family:Syne,sans-serif;font-size:22px;font-weight:700;cursor:pointer;transition:background .1s">⌫</div>
+    </div>
+    <button onclick="closePIN()" style="margin-top:14px;width:100%;padding:10px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px">Cancelar</button>
+  </div>
+</div>
+
 <div class="kiosk">
   <div class="k-header">
     <div style="width:40px"></div>
@@ -150,6 +179,11 @@
 const SB_URL   = 'https://raoxkjnwrccoxjcipfpv.supabase.co';
 const SB_KEY   = 'sb_publishable__-K1pC4bOJHRf8JQ__OOzg_jqLxlGla';
 const _sb      = supabase.createClient(SB_URL, SB_KEY);
+
+// ══════════════════════════════════════════════════
+//  CONFIG PIN ADMIN
+// ══════════════════════════════════════════════════
+const ADMIN_PIN = '1234'; // ← cambiar en producción (mismo que kiosco)
 
 // ══════════════════════════════════════════════════
 //  STATE
@@ -186,6 +220,68 @@ function resetIdle(){
 function startClock(){
   const tick = () => { const el=document.getElementById('k-time'); if(el) el.textContent=new Date().toLocaleTimeString('es-ES'); };
   tick(); setInterval(tick, 1000);
+}
+
+// ══════════════════════════════════════════════════
+//  PIN ADMIN
+// ══════════════════════════════════════════════════
+let _pinBuffer   = '';
+let _pinCallback = null;
+
+function openPIN(callback){
+  _pinBuffer   = '';
+  _pinCallback = callback;
+  updatePINDots();
+  const overlay = document.getElementById('pin-overlay');
+  overlay.style.display = 'flex';
+}
+
+function closePIN(){
+  _pinBuffer = '';
+  document.getElementById('pin-overlay').style.display = 'none';
+  updatePINDots();
+}
+
+function pinKey(k){
+  if(k === '⌫'){ _pinBuffer = _pinBuffer.slice(0, -1); }
+  else if(_pinBuffer.length < 4){ _pinBuffer += k; }
+  updatePINDots();
+
+  if(_pinBuffer.length === 4){
+    setTimeout(() => {
+      if(_pinBuffer === ADMIN_PIN){
+        closePIN();
+        if(_pinCallback) _pinCallback();
+      } else {
+        _pinBuffer = '';
+        updatePINDots();
+        // Shake visual
+        const box = document.querySelector('#pin-overlay > div');
+        if(box){
+          box.style.transition = 'transform .1s';
+          box.style.transform = 'translateX(8px)';
+          setTimeout(() => { box.style.transform = 'translateX(-8px)'; }, 100);
+          setTimeout(() => { box.style.transform = 'translateX(4px)'; },  200);
+          setTimeout(() => { box.style.transform = 'translateX(0)'; },    300);
+        }
+        toast('PIN incorrecto', 'err');
+      }
+    }, 150);
+  }
+}
+
+function updatePINDots(){
+  for(let i = 0; i < 4; i++){
+    const d = document.getElementById('pd'+i);
+    if(!d) continue;
+    if(i < _pinBuffer.length){
+      d.style.background    = 'var(--a1)';
+      d.style.borderColor   = 'var(--a1)';
+    } else {
+      d.style.background    = 'transparent';
+      d.style.borderColor   = 'var(--border)';
+    }
+  }
 }
 
 // ══════════════════════════════════════════════════
@@ -762,7 +858,9 @@ function showRegistrationError(uid, errMsg){
 // ══════════════════════════════════════════════════
 function skipToWristband(){
   if(!activeEvent){ toast('Selecciona un evento primero','warn'); openSettings(); return; }
-  currentTicket = null;
+  // Pedir PIN de admin antes de permitir el registro sin QR
+  openPIN(() => {
+    currentTicket = null;
   
   const body = document.getElementById('k-body');
   body.dataset.screen = 'direct';
@@ -795,6 +893,7 @@ function skipToWristband(){
   // Cambiar handler NFC a modo directo
   body.dataset.nfcMode = 'direct';
   if(!nfcSupported) setTimeout(() => document.getElementById('uid-direct')?.focus(), 100);
+  }); // fin openPIN callback
 }
 
 // Override onNFCScan para modo directo
