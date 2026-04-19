@@ -614,86 +614,95 @@ async function processWristband(uid){
     </div>`;
 
   try{
-    // 1. Buscar o crear la pulsera en rfid_wristbands
-    let {data:wristband} = await _sb.from('rfid_wristbands')
+    // 1. Buscar pulsera existente
+    const {data:existing, error:searchErr} = await _sb.from('rfid_wristbands')
       .select('*')
       .eq('uid', uid)
       .maybeSingle();
 
-    const buyer = currentTicket?.orders || {};
-    const holderName  = buyer.buyer_name  || wristband?.holder_name  || 'Sin nombre';
-    const holderEmail = buyer.buyer_email || wristband?.holder_email || null;
-    const holderPhone = buyer.buyer_phone || wristband?.holder_phone || null;
+    if(searchErr) throw searchErr;
+
+    const buyer       = currentTicket?.orders || {};
+    const holderName  = buyer.buyer_name  || existing?.holder_name  || 'Sin nombre';
+    const holderEmail = buyer.buyer_email || existing?.holder_email || null;
+    const holderPhone = buyer.buyer_phone || existing?.holder_phone || null;
+
+    let wristband = existing;
 
     if(!wristband){
-      // Pulsera nueva — crearla
-      const {data:newWb, error:wbErr} = await _sb.from('rfid_wristbands').insert({
+      // Pulsera nueva — crear con campos mínimos seguros
+      const insertData = {
         uid,
-        holder_name:  holderName,
-        holder_email: holderEmail,
-        holder_phone: holderPhone,
-        status:       'active',
-        balance:      0,
-        event_id:     activeEvent.id,
-      }).select().single();
-      if(wbErr) throw wbErr;
+        holder_name: holderName,
+        status:      'active',
+        balance:     0,
+        event_id:    activeEvent.id,
+      };
+      // Añadir email/phone solo si existen (evitar error si la columna no existe)
+      if(holderEmail) insertData.holder_email = holderEmail;
+      if(holderPhone) insertData.holder_phone = holderPhone;
+
+      const {data:newWb, error:wbErr} = await _sb
+        .from('rfid_wristbands')
+        .insert(insertData)
+        .select()
+        .single();
+
+      if(wbErr) throw new Error('Error creando pulsera: ' + wbErr.message);
       wristband = newWb;
+
     } else {
-      // Pulsera existente — actualizar holder si ahora tenemos datos
+      // Pulsera existente — actualizar event_id y nombre si tenemos datos mejores
+      const updateData = {event_id: activeEvent.id};
       if(holderName !== 'Sin nombre' && wristband.holder_name !== holderName){
-        await _sb.from('rfid_wristbands').update({
-          holder_name:  holderName,
-          holder_email: holderEmail || wristband.holder_email,
-          holder_phone: holderPhone || wristband.holder_phone,
-        }).eq('id', wristband.id);
-        wristband.holder_name = holderName;
+        updateData.holder_name = holderName;
       }
+      const {error:updErr} = await _sb.from('rfid_wristbands').update(updateData).eq('id', wristband.id);
+      if(updErr) console.warn('Update wristband:', updErr.message);
+      else wristband.holder_name = holderName;
     }
 
-    // 2. Registrar en event_wristband_registrations
-    //    Esta tabla permite que una pulsera esté en múltiples eventos
-    const regData = {
-      event_id:     activeEvent.id,
-      wristband_id: wristband.id,
-      wristband_uid:uid,
-      ticket_id:    currentTicket?.id || null,
-      holder_name:  holderName,
-      holder_email: holderEmail,
-      holder_phone: holderPhone,
-      registered_at:new Date().toISOString(),
-      registered_by:'kiosk-register',
-    };
+    // 2. Registrar en event_wristband_registrations (tabla multi-evento)
+    const {error:regErr} = await _sb.from('event_wristband_registrations').upsert({
+      event_id:      activeEvent.id,
+      wristband_id:  wristband.id,
+      wristband_uid: uid,
+      ticket_id:     currentTicket?.id || null,
+      holder_name:   holderName,
+      registered_at: new Date().toISOString(),
+      registered_by: 'kiosk-register',
+    }, {onConflict: 'event_id,wristband_uid'});
 
-    // Upsert: si ya existe para este evento, actualizar
-    const {error:regErr} = await _sb.from('event_wristband_registrations')
-      .upsert(regData, {onConflict:'event_id,wristband_uid'});
-    
     if(regErr){
-      // Si la tabla no existe, intentar solo actualizar la pulsera con el event_id
-      console.warn('event_wristband_registrations no disponible, usando event_id en wristband:', regErr);
-      await _sb.from('rfid_wristbands').update({event_id: activeEvent.id}).eq('id', wristband.id);
+      // Tabla no existe aún — solo loguear, no bloquear
+      console.warn('event_wristband_registrations error:', regErr.message);
+      // El event_id ya está actualizado en rfid_wristbands arriba, así que funciona igualmente
     }
 
-    // 3. Marcar el ticket como usado (si existe)
+    // 3. Marcar ticket como usado (no crítico si falla)
     if(currentTicket?.id){
-      await _sb.from('tickets').update({status:'used', validated:true, validated_at:new Date().toISOString()}).eq('id', currentTicket.id);
+      const {error:tErr} = await _sb.from('tickets')
+        .update({status:'used', validated:true, validated_at:new Date().toISOString()})
+        .eq('id', currentTicket.id);
+      if(tErr) console.warn('Update ticket:', tErr.message);
     }
 
-    // 4. Registrar log
-    await _sb.from('rfid_transactions').insert({
-      wristband_id: wristband.id,
-      event_id:     activeEvent.id,
-      amount:       0,
-      description:  `Registro entrada evento: ${activeEvent.nombre}`,
-      type:         'registration',
-      operator:     'kiosk-register',
-    }).catch(() => {}); // no crítico
+    // 4. Log de transacción (completamente opcional — silenciar errores)
+    try{
+      await _sb.from('rfid_transactions').insert({
+        wristband_id: wristband.id,
+        event_id:     activeEvent.id,
+        amount:       0,
+        description:  'Registro entrada: ' + activeEvent.nombre,
+        operator:     'kiosk-register',
+      });
+    }catch(_e){ console.warn('Log transaction (no crítico):', _e.message); }
 
-    showSuccess(uid, holderName, wristband);
+    showSuccess(uid, wristband.holder_name || holderName, wristband);
 
   }catch(e){
-    console.error(e);
-    showRegistrationError(uid, e.message);
+    console.error('processWristband error:', e);
+    showRegistrationError(uid, e.message || String(e));
   }
 }
 
