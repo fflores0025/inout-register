@@ -246,7 +246,8 @@ async function openSettings(){
     list.innerHTML = evs.map(ev => {
       const fecha = (ev.fecha_inicio||'').slice(0,10);
       const isSelected = activeEvent?.id === ev.id;
-      return `<div class="ev-btn ${isSelected?'selected':''}" onclick="selectEvent('${ev.id}','${ev.nombre.replace(/'/g,'\\'')}')">
+      const safeName = ev.nombre.replace(/"/g,'&quot;');
+      return `<div class="ev-btn ${isSelected?'selected':''}" data-evid="${ev.id}" data-evnombre="${safeName}" onclick="selectEventFromEl(this)">
         <div class="ev-nombre">${ev.nombre}</div>
         <div class="ev-meta">📅 ${fecha} · ${ev.estado}</div>
       </div>`;
@@ -262,6 +263,13 @@ function selectEvent(id, nombre){
   localStorage.setItem('reg_event_name', nombre);
   toast(`Evento activo: ${nombre}`, 'ok');
   showIdle();
+}
+
+// Versión que lee data attributes para evitar problemas de escape en onclick
+function selectEventFromEl(el){
+  const id     = el.dataset.evid;
+  const nombre = el.dataset.evnombre;
+  selectEvent(id, nombre);
 }
 
 // ══════════════════════════════════════════════════
@@ -485,13 +493,14 @@ function showTicketAlreadyLinked(ticket, reg){
         <div class="ticket-row"><span class="ticket-lbl">Titular</span><span>${wristband?.holder_name || reg.holder_name || '—'}</span></div>
       </div>
       <div style="font-size:13px;color:var(--muted);margin:12px 0">Esta entrada ya tiene una pulsera enlazada. ¿Quieres re-enlazarla a una pulsera diferente?</div>
-      <button class="btn btn-p" onclick="currentTicket=ticket_;startStep2()" style="margin-bottom:8px">Sí, re-enlazar pulsera</button>
+      <button class="btn btn-p" id="relink-btn" style="margin-bottom:8px">Sí, re-enlazar pulsera</button>
       <button class="btn btn-g" onclick="showIdle()">No, cancelar</button>
     </div>`;
-  // Guardar ticket en closure
-  const ticket_ = ticket;
-  window._relink_ticket = ticket;
-  document.querySelector('[onclick="currentTicket=ticket_;startStep2()"]').onclick = () => { currentTicket = ticket_; startStep2(); };
+  // Asignar onclick después de renderizar para evitar problemas de escape
+  setTimeout(() => {
+    const btn = document.getElementById('relink-btn');
+    if(btn) btn.onclick = () => { currentTicket = ticket; startStep2(); };
+  }, 50);
 }
 
 function showTicketValid(ticket){
