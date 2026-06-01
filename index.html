@@ -1023,6 +1023,25 @@ async function ensureRegistrationsTable(){
 //  INIT
 // ══════════════════════════════════════════════════
 (async function init(){
+  // ── MULTI-TENANT: cargar organización por slug ──
+  const slug = location.pathname.replace(/^\//, '').split('/')[0]
+  if (!slug) {
+    document.body.innerHTML = '<div style="color:#e6e6f0;text-align:center;padding:4rem;font-family:Syne,sans-serif;font-size:1.2rem">Acceso no válido — falta el slug de organización</div>'
+    return
+  }
+  const { data: org } = await _sb.from('organizations').select('*').eq('slug', slug).maybeSingle()
+  if (!org) {
+    document.body.innerHTML = `<div style="color:#e6e6f0;text-align:center;padding:4rem;font-family:Syne,sans-serif;font-size:1.2rem">Organización "${slug}" no encontrada</div>`
+    return
+  }
+  if (org.color_primario) document.documentElement.style.setProperty('--a1', org.color_primario)
+  if (org.color_secundario) document.documentElement.style.setProperty('--a2', org.color_secundario)
+  document.querySelector('.k-logo').innerHTML = `<img src="${org.logo_url||''}" style="height:28px;object-fit:contain" onerror="this.style.display='none'"> <span style="margin-left:6px">in<span class="hi">out</span></span><small id="logo-sub">Registro · ${org.nombre}</small>`
+  localStorage.setItem('inout_org_id', org.id)
+  localStorage.setItem('inout_org_slug', org.slug)
+  localStorage.setItem('inout_org_name', org.nombre)
+  // ── FIN MULTI-TENANT ──
+
   showDeviceLockScreen('Registro de Pulseras','📝', async()=>{
     startClock();
     await initNFC();
