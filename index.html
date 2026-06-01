@@ -418,8 +418,10 @@ async function openSettings(){
     </div>`;
   
   try{
-    const{data:evs} = await _sb.from('events')
+      const orgId = localStorage.getItem('inout_org_id')
+      const{data:evs} = await _sb.from('events')
       .select('id,nombre,fecha_inicio,estado')
+      .eq('organization_id', orgId)
       .in('estado',['publicado','confirmado','produccion','borrador'])
       .order('fecha_inicio',{ascending:false})
       .limit(20);
