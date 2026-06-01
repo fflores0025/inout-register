@@ -419,12 +419,13 @@ async function openSettings(){
   
   try{
       const orgId = localStorage.getItem('inout_org_id')
+      const orgId = localStorage.getItem('inout_org_id')
       const{data:evs} = await _sb.from('events')
-      .select('id,nombre,fecha_inicio,estado')
-      .eq('organization_id', orgId)
-      .in('estado',['publicado','confirmado','produccion','borrador'])
-      .order('fecha_inicio',{ascending:false})
-      .limit(20);
+     .select('id,nombre,fecha_inicio,estado')
+     .eq('organization_id', orgId)
+     .in('estado',['publicado','confirmado','produccion','borrador'])
+     .order('fecha_inicio',{ascending:false})
+     .limit(20);
     
     const list = document.getElementById('ev-list');
     if(!evs || evs.length === 0){
