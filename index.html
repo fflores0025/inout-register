@@ -1042,6 +1042,15 @@ async function ensureRegistrationsTable(){
   localStorage.setItem('inout_org_id', org.id)
   localStorage.setItem('inout_org_slug', org.slug)
   localStorage.setItem('inout_org_name', org.nombre)
+
+// Limpiar evento activo si no corresponde a esta org
+const savedEvOrgSlug = localStorage.getItem('reg_event_slug')
+if (savedEvOrgSlug !== org.slug) {
+  localStorage.removeItem('reg_event_id')
+  localStorage.removeItem('reg_event_name')
+  localStorage.setItem('reg_event_slug', org.slug)
+  activeEvent = null
+}
   // ── FIN MULTI-TENANT ──
 
   showDeviceLockScreen('Registro de Pulseras','📝', async()=>{
